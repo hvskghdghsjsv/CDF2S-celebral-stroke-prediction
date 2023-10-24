@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from ib3 import ib3_test
 
 
-def UCO(data, K, target, random_state):
+def CBUC(data, K, target, random_state):
     # --------------------------------------------CBUC算法----------------------------------------------------------------------------------
     # step 1
     X_0 = data[data[target] == 0]
@@ -52,29 +52,6 @@ def UCO(data, K, target, random_state):
     X_train = X_pretrain.drop(target, axis=1)
     y_test = X_test.stroke
     X_test = X_test.drop(['stroke'], axis=1)
-    # --------------------------------------------CBU算法----------------------------------------------------------------------------------
-    '''
-    # Step 1
-    X_0 = data[data[target] == 0]
-    X_1 = data[data[target] == 1]
-    # Step 2  对X_0随机下采样
-    X_train_0, X_test_0 = train_test_split(X_0, test_size=0.1,random_state=random_state+1)
-    # 使用cbu算法
-    selected_ind = cbu(X_train_maj=X_train_0.drop([target], axis=1), y_train_maj=X_train_0['stroke'], K=4, Ks=124)
-    X_00 = X_0.iloc[selected_ind]
-    print('x_test_0', len(X_test_0))
-    print('x_train_0', len(X_00))
-
-    # Step 3 对X_1（正样本）进行随机分割
-    C_train, C_test = train_test_split(X_1, test_size=0.1, random_state=42)
-    # Step 4 将准训练集、验证集、测试集进行拼接
-    X_pretrain = pd.concat([X_00] + [C_train], ignore_index=True)
-    X_test = pd.concat([X_test_0] + [C_test], ignore_index=True)
-    y_train = X_pretrain[target]
-    X_train = X_pretrain.drop(target, axis=1)
-    y_test = X_test.stroke
-    X_test = X_test.drop(['stroke'], axis=1)
-    '''
 
     return X_train, y_train, X_test, y_test
 
@@ -123,7 +100,7 @@ if __name__ == '__main__':
 
     # 使用Gini不纯度计算 特征重要性
     prepro_data = data_proprecesing()
-    X_train, y_train, X_test, y_test = UCO(prepro_data, K=5, target='stroke', random_state=1)
+    X_train, y_train, X_test, y_test = CBUC(prepro_data, K=5, target='stroke', random_state=1)
     model = CascadeForestClassifier(backend='sklearn')
     model.fit(X_train, y_train)
     importances = model.get_layer_feature_importances(layer_idx=0)
@@ -245,7 +222,6 @@ if __name__ == '__main__':
         fpr, tpr, thresholds = roc_curve(y_test, y_pred)
         aucValue = auc(fpr, tpr)
         aucs.append(aucValue)
-        print("一轮结束")
     print("结束")
     print(np.array(accs).mean(axis=0))
     print(np.array(spe).mean(axis=0))
