@@ -1,5 +1,3 @@
-import os
-
 import math
 import numpy as np
 import pandas as pd
@@ -20,20 +18,19 @@ import matplotlib.pyplot as plt
 from ib3 import ib3_test
 
 
-def CBUC(data, K, target, random_state):
-    # --------------------------------------------CBUC算法----------------------------------------------------------------------------------
+def CBUC(data, K, target):
     # step 1
     X_0 = data[data[target] == 0]
     X_1 = data[data[target] == 1]
     X_train_0, X_test_0 = train_test_split(X_0, test_size=0.1)
-    # step 2 对多数类训练集使用cbu算法
-    selected_ind = cbu(X_train_maj=X_train_0.drop([target], axis=1), y_train_maj=X_train_0['stroke'], K=4, Ks=124)
+    # step 2 Use the cbu algorithm for the majority class training set
+    selected_ind = cbu(X_train_maj=X_train_0.drop([target], axis=1), y_train_maj=X_train_0['stroke'], K=4, Ks=145)
     X_00 = X_0.iloc[selected_ind]
 
-    print('x_test_0', len(X_test_0))
-    print('x_train_0', len(X_00))
+    # print('x_test_0', len(X_test_0))
+    # print('x_train_0', len(X_00))
 
-    # step 3 对少数类使用Kmeans划分
+    # step 3 Use Kmeans partitioning for a small number of classes
     kmeans = KMeans(n_clusters=K, random_state=42).fit(X_1.drop([target], axis=1))
     C = []
     for i in range(K):
@@ -45,7 +42,7 @@ def CBUC(data, K, target, random_state):
         C_train.append(c_train)
         C_test.append(c_test)
 
-    # step 4 整合训练集和测试集
+    # step 4 Integration of training and test sets
     X_pretrain = pd.concat([X_00] + C_train, ignore_index=True)
     X_test = pd.concat([X_test_0] + C_test, ignore_index=True)
     y_train = X_pretrain[target]
@@ -57,9 +54,9 @@ def CBUC(data, K, target, random_state):
 
 
 def cbu(X_train_maj, y_train_maj, K, Ks):
-    # 对数据进行聚类
+    # Clustering the data
     kmeans = KMeans(n_clusters=K, random_state=42).fit(X_train_maj)
-    # 得到聚类中心
+    # Getting the clustering center
     center = kmeans.cluster_centers_
     knn = KNeighborsClassifier(n_neighbors=Ks, metric='euclidean')
     knn.fit(X_train_maj, y_train_maj)
@@ -73,7 +70,6 @@ def data_proprecesing():
     df = pd.read_csv('dataset/dataset.csv')
     df = df.drop(['id'], axis=1)
     df = df.dropna()
-    # 将离散文字的数据使用固定数字替代
     df.gender = df.gender.map({'Male': 0, 'Female': 1, 'Other': 2})
     df['ever_married'] = df['ever_married'].map({"Yes": 1, "No": 0})
     df['Residence_type'] = df['Residence_type'].map({"Urban": 1, "Rural": 0})
@@ -83,7 +79,7 @@ def data_proprecesing():
     df.smoking_status = df.smoking_status.map({"never smoked": 0, "formerly smoked": 1, "smokes": 2})
     df = df[df['age'] >= 10]
     df = df[df['bmi'] <= 60]
-    # 对数据进行归一化处理
+    # Normalization of data
 
     scaler = StandardScaler()
     scaler_label = ['age', 'avg_glucose_level', 'bmi']
@@ -93,23 +89,22 @@ def data_proprecesing():
         df[scaler_label[i]] = scalered_col[:, i]
 
     return df
-
-
-if __name__ == '__main__':
-    # %%
-
-    # 使用Gini不纯度计算 特征重要性
+def calculate_feature_importance():
     prepro_data = data_proprecesing()
     X_train, y_train, X_test, y_test = CBUC(prepro_data, K=5, target='stroke', random_state=1)
     model = CascadeForestClassifier(backend='sklearn')
     model.fit(X_train, y_train)
+
+    def df_predict(X):
+        return model.predict_proba(X)
+
     importances = model.get_layer_feature_importances(layer_idx=0)
 
     feature_names = X_train.columns
-    sorted_indices = importances.argsort()[::-1]  # 降序排序后的索引
+    sorted_indices = importances.argsort()[::-1] 
     sorted_feature_importance = importances[sorted_indices]
     sorted_feature_names = [feature_names[i] for i in sorted_indices]
-    plt.figure(figsize=(11.1,6))
+    plt.figure(figsize=(11.1, 6))
 
     # plt.pie(sorted_feature_importance, labels=sorted_feature_names, startangle=140,textprops={'fontsize': 9})
     plt.barh(sorted_feature_names[::-1], sorted_feature_importance[::-1])
@@ -117,42 +112,26 @@ if __name__ == '__main__':
     plt.title("mean(Feature importance)")
     plt.show()
 
-    # %%
-    '''
+if __name__ == '__main__':
+    
     prepro_data = data_proprecesing()
     performance = []
-    for i in range(0, 1):
+    for i in range(0, 100):
+        print('i==',i)
         p = []
 
-        X_train, y_train, X_test, y_test = UCO(prepro_data, K=5, target='stroke', random_state=i + 1)
+        X_train, y_train, X_test, y_test = CBUC(prepro_data, K=4, target='stroke')
         # gcforest
-        model = CascadeForestClassifier(backend='sklearn', n_trees=50)
-
-        # RF模型；注意：使用时需要注释import中从deepforest引用的RF
-        # model = RandomForestClassifier(criterion='gini', min_samples_split=5, min_samples_leaf=2, n_estimators=10)
-
-        # KNN
-        # model = KNeighborsClassifier(algorithm='auto', leaf_size=1, n_neighbors=17, weights='uniform')
-
-        # MLP
-        # model = MLPClassifier(activation='tanh', alpha=0.0001, hidden_layer_sizes=(5, 10, 20), learning_rate='constant',
-        #                     solver='sgd')
-
-        # SVM
-        # model = SVC(C=100, gamma=0.01, kernel='sigmoid')
-
-        # XGBoost
-        # model = xgb.XGBClassifier(learning_rate=0.001, max_depth=3, n_estimators=100, min_child_weight=5, subsample=1,
-        #                           colsample_bytree=0.8)
+        model = CascadeForestClassifier(backend='sklearn')
 
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
-        # 计算acc
+        # acc
         acc = accuracy_score(y_test, y_pred)
         p.append(acc)
 
-        # 计算 SPC 和 SEN 值
+        # SPC and SEN 
         y_pred_binary = [1 if proba >= 0.5 else 0 for proba in y_pred]
         tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 
@@ -161,11 +140,11 @@ if __name__ == '__main__':
         p.append(specificity)
         p.append(sensitivity)
 
-        # 计算Gmean
+        # Gmean
         G_mean = math.sqrt(sensitivity * specificity)
         p.append(G_mean)
 
-        # 计算auc
+        # auc
         fpr, tpr, thresholds = roc_curve(y_test, y_pred)
         aucValue = auc(fpr, tpr)
         p.append(aucValue)
@@ -175,57 +154,5 @@ if __name__ == '__main__':
         performance.append(p)
 
     final_p = np.array(performance)
-    print('均值结果：', final_p.mean(axis=0))
-    # %%
-    # 10倍交叉验证:使用分层k折交叉验证对象
-    '''
-    '''
-    X_train, y_train, X_test, y_test = UCO(prepro_data, K=5, target='stroke', random_state=1)
+    print('Mean：', final_p.mean(axis=0))
 
-    # 10倍交叉验证:使用分层k折交叉验证对象
-    fold_size = len(X_train) // 9
-    accs = []
-    spe = []
-    sen = []
-    Gmean = []
-    aucs = []
-    print(len(X_train),len(X_test))
-    for i in range(0, 9):
-        start = i * fold_size
-        end = (i+1) * fold_size
-        X_train_t = X_train.iloc[start:end]
-        print(len(X_train_t))
-
-
-        model = CascadeForestClassifier(backend='sklearn', n_trees=50)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-
-        # 计算acc
-        acc = accuracy_score(y_test, y_pred)
-        accs.append(acc)
-
-        # 计算 SPC 和 SEN 值
-        y_pred_binary = [1 if proba >= 0.5 else 0 for proba in y_pred]
-        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-
-        specificity = tn / (tn + fp)
-        sensitivity = tp / (tp + fn)
-        spe.append(specificity)
-        sen.append(sensitivity)
-
-        # 计算Gmean
-        G_mean = math.sqrt(sensitivity * specificity)
-        Gmean.append(G_mean)
-
-        # 计算auc
-        fpr, tpr, thresholds = roc_curve(y_test, y_pred)
-        aucValue = auc(fpr, tpr)
-        aucs.append(aucValue)
-    print("结束")
-    print(np.array(accs).mean(axis=0))
-    print(np.array(spe).mean(axis=0))
-    print(np.array(sen).mean(axis=0))
-    print(np.array(Gmean).mean(axis=0))
-    print(np.array(aucs).mean(axis=0))
-    '''
