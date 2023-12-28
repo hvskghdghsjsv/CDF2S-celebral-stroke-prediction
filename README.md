@@ -8,5 +8,5 @@ The model contains 2 components:
 The dataset is from kaggle and the link is https://www.kaggle.com/datasets/shashwatwork/cerebral-strokeprediction-imbalance-dataset. It contains 43,400 samples totally, including 10 risk
 factors related to stroke and the target variable ‘stroke’.
 
-# How to get started?
-
+# Get started
+Just run main.py, all the codes are provided there.
